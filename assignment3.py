@@ -8,11 +8,15 @@ Created on Tue Jan 17 23:40:26 2023
 
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+from scipy.optimize import curve_fit  
 
 def get_data_frames(filename,countries,indicator):
     '''
-    This function returns two dataframes one with countries as column and other one years as column.
-    It tanspose the dataframe and converts rows into column and column into rows of specific column and rows.
+    This function returns two dataframes one with countries as column and other 
+    one years as column.
+    It tanspose the dataframe and converts rows into column and column into 
+    rows of specific column and rows.
     It takes three arguments defined as below. 
 
     Parameters
@@ -43,12 +47,15 @@ def get_data_frames(filename,countries,indicator):
     # To filter data by indicator code.
     df = df.loc[df['Indicator Code'].eq(indicator)]
     
-    # Using melt function to convert all the years column into rows as one column
-    df2 = df.melt(id_vars=['Country Name','Country Code','Indicator Name','Indicator Code'], var_name='Years')
+    # Using melt function to convert all the years column into rows as 1 column
+    df2 = df.melt(id_vars=['Country Name','Country Code','Indicator Name'
+                           ,'Indicator Code'], var_name='Years')
     # Deleting country code column.
     del df2['Country Code']
-    # Using pivot table function to convert countries from rows to separate column for each country.   
-    df2 = df2.pivot_table('value',['Years','Indicator Name','Indicator Code'],'Country Name').reset_index()
+    # Using pivot table function to convert countries from rows to separate 
+    # column for each country.   
+    df2 = df2.pivot_table('value',['Years','Indicator Name','Indicator Code']
+                          ,'Country Name').reset_index()
     
     df_countries = df
     df_years = df2
@@ -59,15 +66,183 @@ def get_data_frames(filename,countries,indicator):
     
     return df_countries, df_years
 
+def poly(x, a, b, c, d):
+    '''Cubic polynominal for the fitting'''
+    y = a*x**3 + b*x**2 + c*x + d
+    return y
 
+def exp_growth(t, scale, growth):
+    ''' 
+    Computes exponential function with scale and growth as free parameters
+    '''
+    f = scale * np.exp(growth * (t-1960))
+    return f
+
+def logistics(t, scale, growth, t0):
+    ''' 
+    Computes logistics function with scale, growth raat
+    and time of the turning point as free parameters
+    '''
+    f = scale / (1.0 + np.exp(-growth * (t - t0)))
+    return f
+
+countries = ['Germany','Australia','United States','China','United Kingdom']
+# calling functions to get dataframes and use for plotting graphs.
+df_c, df_y = get_data_frames('API_19_DS2_en_csv_v2_4700503.csv',countries,
+                             'SP.POP.TOTL')
+
+df_y['Years'] = df_y['Years'].astype(int)
+
+popt, covar = curve_fit(exp_growth, df_y['Years'], df_y['China'])
+print("Fit parameter", popt)
+# use *popt to pass on the fit parameters
+df_y['china_exp'] = exp_growth(df_y['Years'], *popt)
+plt.figure()
+plt.plot(df_y['Years'], df_y["China"], label='data')
+plt.plot(df_y['Years'], df_y['china_exp'], label='fit')
+plt.legend()
+plt.title("First fit attempt")
+plt.xlabel("Year")
+plt.ylabel("China Population")
+plt.show()
+
+# find a feasible start value the pedestrian way
+# the scale factor is way too small. The exponential factor too large.
+# Try scaling with the 1950 population and a smaller exponential factor
+# decrease or increase exponential factor until rough agreement is reached
+# growth of 0.07 gives a reasonable start value
+popt = [7e8, 0.01]
+df_y['china_exp'] = exp_growth(df_y['Years'], *popt)
+print(df_y['china_exp'])
+plt.figure()
+plt.plot(df_y['Years'], df_y['China'], label='data')
+plt.plot(df_y['Years'], df_y['china_exp'], label='fit')
+plt.legend()
+plt.xlabel("Year")
+plt.ylabel("China Population")
+plt.title("Improved start value")
+plt.show()
+
+# fit exponential growth
+popt, covar = curve_fit(exp_growth, df_y['Years'],df_y['China'], p0=[7e8, 0.02])
+# much better
+print("Fit parameter", popt)
+df_y['china_exp'] = exp_growth(df_y['Years'], *popt)
+print(df_y['china_exp'])
+plt.figure()
+plt.plot(df_y['Years'], df_y['China'], label='data')
+plt.plot(df_y['Years'], df_y['china_exp'], label='fit')
+plt.legend()
+plt.xlabel("Year")
+plt.ylabel("China Population")
+plt.title("Final fit exponential growth")
+plt.show()
+
+
+
+'''
+
+#==============================================================================
+# Data fitting for Total Population
+#==============================================================================
 # List of countries 
 countries = ['Germany','Australia','United States','China','United Kingdom']
 # calling functions to get dataframes and use for plotting graphs.
-df_c, df_y = get_data_frames('API_19_DS2_en_csv_v2_4700503.csv',countries,'AG.LND.FRST.ZS')
+df_c, df_y = get_data_frames('API_19_DS2_en_csv_v2_4700503.csv',countries,
+                             'SP.POP.TOTL')
+
 
 df_c.dropna()
+df_y.dropna()
 
-print(df_c['Country Name'])
+
+df_y['Years'] = df_y['Years'].astype(int)
+x = df_y['Years'].values
+y = df_y['China'].values 
+z = df_y['United States'].values
+w = df_y['United Kingdom'].values 
+
+param, covar = curve_fit(poly, x, y)
+# produce columns with fit values
+df_y["fit"] = poly(df_y['Years'], *param)
+# calculate the z-score
+df_y["diff"] = df_y['China'] - df_y["fit"]
+sigma = df_y["diff"].std()
+print("Number of points:", len(df_y['Years']), "std. dev. =", sigma)
+# calculate z-score and extract outliers
+df_y["zscore"] = np.abs(df_y["diff"] / sigma)
+df_y = df_y[df_y["zscore"] < 3.0].copy()
+print("Number of points:", len(df_y['Years']))
+
+param1, covar1 = curve_fit(poly, x, z)
+param2, covar2 = curve_fit(poly, x, w)
+
+plt.figure()
+plt.title("Total Popolation (Data Fitting)")
+plt.scatter(x, y, label='China')
+plt.scatter(x, z, label='United States')
+plt.scatter(x, w, label='United Kingdom')
+plt.xlabel('Years')
+plt.ylabel('Total Population')
+x = np.arange(1960,2021,10)
+plt.plot(x, poly(x, *param), 'k')
+plt.plot(x, poly(x, *param1), 'k')
+plt.plot(x, poly(x, *param2), 'k')
+plt.xlim(1960,2021)
+plt.legend()
+plt.show()
+
+
+#==============================================================================
+# Bar Chart for Urban population growth (annual %)
+#==============================================================================
+df_c, df_y = get_data_frames('API_19_DS2_en_csv_v2_4700503.csv',countries
+                             ,'SP.POP.GROW')
+num= np.arange(5)
+width= 0.2
+# Select specific years data 
+df_y = df_y.loc[df_y['Years'].isin(['2016','2017','2018','2019','2020'])]
+years = df_y['Years'].tolist() 
+
+#Ploting data on bar chart  
+plt.figure(dpi=144)
+plt.title('Population growth (annual %)')
+plt.bar(num,df_y['Germany'], width, label='Germany')
+plt.bar(num+0.2, df_y['Australia'], width, label='Australia')
+plt.bar(num-0.2, df_y['United States'], width, label='United States')
+plt.bar(num-0.4, df_y['China'], width, label='China')
+plt.xticks(num, years)
+plt.xlabel('Years')
+plt.ylabel('Annual Growth %')
+plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+plt.show()
+
+#==============================================================================
+# Bar Chart for GDP per capita growth (annual %)
+#==============================================================================
+df_c, df_y = get_data_frames('API_NY.GDP.PCAP.KD.ZG_DS2_en_csv_v2_4748430.csv'
+                             ,countries,'NY.GDP.PCAP.KD.ZG')
+num= np.arange(5)
+width= 0.2
+# Select specific years data 
+df_y = df_y.loc[df_y['Years'].isin(['2016','2017','2018','2019','2020'])]
+years = df_y['Years'].tolist() 
+
+#Ploting data on bar chart  
+plt.figure(dpi=144)
+plt.title('GDP per capita growth (annual %)')
+plt.bar(num,df_y['Germany'], width, label='Germany')
+plt.bar(num+0.2, df_y['Australia'], width, label='Australia')
+plt.bar(num-0.2, df_y['United States'], width, label='United States')
+plt.bar(num-0.4, df_y['China'], width, label='China')
+plt.xticks(num, years)
+plt.xlabel('Years')
+plt.ylabel('Annual %')
+plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+plt.show()
+
+'''
+
 
 
 
