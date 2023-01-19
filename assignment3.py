@@ -9,7 +9,8 @@ Created on Tue Jan 17 23:40:26 2023
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from scipy.optimize import curve_fit  
+from scipy.optimize import curve_fit
+import errors as err
 
 def get_data_frames(filename,countries,indicator):
     '''
@@ -139,6 +140,50 @@ plt.title("Final fit exponential growth")
 plt.show()
 
 
+# estimated turning year: 1990
+# population in 1990: about 1135185000
+# kept growth value from before
+# increase scale factor and growth rate until rough fit
+popt = [1135185000, 0.02, 1990]
+df_y['china_log'] = logistics(df_y['Years'], *popt)
+plt.figure()
+plt.plot(df_y['Years'], df_y['China'], label='data')
+plt.plot(df_y['Years'], df_y['china_log'], label='fit')
+plt.legend()
+plt.xlabel("Year")
+plt.ylabel("China Population")
+plt.title("Improved start value")
+plt.show()
+
+popt, covar = curve_fit(logistics,  df_y['Years'],df_y['China'],
+p0=(2e9, 0.05, 1990.0))
+print("Fit parameter", popt)
+df_y['china_log'] = logistics(df_y['Years'], *popt)
+plt.figure()
+plt.plot(df_y['Years'], df_y['China'], label='data')
+plt.plot(df_y['Years'], df_y['china_log'], label='fit')
+plt.legend()
+plt.xlabel("Year")
+plt.ylabel("China Population")
+plt.title("Logistic Function")
+
+
+# extract the sigmas from the diagonal of the covariance matrix
+sigma = np.sqrt(np.diag(covar))
+print(sigma)
+
+low, up = err.err_ranges(df_y['Years'], logistics, popt, sigma)
+plt.figure()
+plt.title("logistics function")
+plt.plot(df_y['Years'], df_y['China'], label='data')
+plt.plot(df_y['Years'], df_y['china_log'], label='fit')
+plt.fill_between(df_y['Years'], low, up, alpha=0.7)
+plt.legend()
+plt.xlabel("Year")
+plt.ylabel("China Population")
+plt.show()
+
+
 
 '''
 
@@ -164,10 +209,10 @@ w = df_y['United Kingdom'].values
 
 param, covar = curve_fit(poly, x, y)
 # produce columns with fit values
-df_y["fit"] = poly(df_y['Years'], *param)
+df_y['fit'] = poly(df_y['Years'], *param)
 # calculate the z-score
-df_y["diff"] = df_y['China'] - df_y["fit"]
-sigma = df_y["diff"].std()
+df_y['diff'] = df_y['China'] - df_y['fit']
+sigma = df_y['diff'].std()
 print("Number of points:", len(df_y['Years']), "std. dev. =", sigma)
 # calculate z-score and extract outliers
 df_y["zscore"] = np.abs(df_y["diff"] / sigma)
