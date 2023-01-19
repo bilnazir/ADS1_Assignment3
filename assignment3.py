@@ -68,7 +68,9 @@ def get_data_frames(filename,countries,indicator):
     return df_countries, df_years
 
 def poly(x, a, b, c, d):
-    '''Cubic polynominal for the fitting'''
+    '''
+    Cubic polynominal for the fitting
+    '''
     y = a*x**3 + b*x**2 + c*x + d
     return y
 
@@ -86,6 +88,10 @@ def logistics(t, scale, growth, t0):
     '''
     f = scale / (1.0 + np.exp(-growth * (t - t0)))
     return f
+
+#==============================================================================
+# Data fitting for China Population with prediction
+#==============================================================================
 
 countries = ['Germany','Australia','United States','China','United Kingdom']
 # calling functions to get dataframes and use for plotting graphs.
@@ -156,7 +162,7 @@ plt.title("Improved start value")
 plt.show()
 
 popt, covar = curve_fit(logistics,  df_y['Years'],df_y['China'],
-p0=(2e9, 0.05, 1990.0))
+p0=(6e9, 0.05, 1990.0))
 print("Fit parameter", popt)
 df_y['china_log'] = logistics(df_y['Years'], *popt)
 plt.figure()
@@ -183,12 +189,32 @@ plt.xlabel("Year")
 plt.ylabel("China Population")
 plt.show()
 
+print("Forcasted population")
+low, up = err.err_ranges(2030, logistics, popt, sigma)
+print("2030 between ", low, "and", up)
+low, up = err.err_ranges(2040, logistics, popt, sigma)
+print("2040 between ", low, "and", up)
+low, up = err.err_ranges(2050, logistics, popt, sigma)
+print("2050 between ", low, "and", up)
+
+print("Forcasted population")
+low, up = err.err_ranges(2030, logistics, popt, sigma)
+mean = (up+low) / 2.0
+pm = (up-low) / 2.0
+print("2030:", mean, "+/-", pm)
+low, up = err.err_ranges(2040, logistics, popt, sigma)
+mean = (up+low) / 2.0
+pm = (up-low) / 2.0
+print("2040:", mean, "+/-", pm)
+low, up = err.err_ranges(2050, logistics, popt, sigma)
+mean = (up+low) / 2.0
+pm = (up-low) / 2.0
+print("2050:", mean, "+/-", pm)
 
 
-'''
 
 #==============================================================================
-# Data fitting for Total Population
+# Data fitting with ouliners for Total Population
 #==============================================================================
 # List of countries 
 countries = ['Germany','Australia','United States','China','United Kingdom']
@@ -286,7 +312,7 @@ plt.ylabel('Annual %')
 plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 plt.show()
 
-'''
+
 
 
 
