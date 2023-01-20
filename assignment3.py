@@ -69,7 +69,7 @@ def get_data_frames(filename,countries,indicator):
     
     return df_countries, df_years
 
-def get_data_frames1(filename,countries,indicator):
+def get_data_frames1(filename,indicator):
     '''
     This function returns two dataframes one with countries as column and other 
     one years as column.
@@ -100,9 +100,7 @@ def get_data_frames1(filename,countries,indicator):
     df.info()
     # To clean data we need to remove unnamed column.
     df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
-    # To filter data by countries
-    # df = df.loc[df['Country Name'].isin(countries)]
-    # To filter data by indicator code.
+    # To filter data by indicator codes.
     df = df.loc[df['Indicator Code'].isin(indicator)]
     
     # Using melt function to convert all the years column into rows as 1 column
@@ -183,15 +181,8 @@ def map_corr(df, size=10):
     fig, ax = plt.subplots(figsize=(size, size))
     ax.matshow(corr, cmap='RdBu')
     # setting ticks to column names
-    plt.xticks(range(len(corr.columns)), ['Population Growth'
-                                          , 'Total Population'
-                                          , 'Urban Growth'
-                                          , 'Total urban'], rotation=90)
-    plt.yticks(range(len(corr.columns)), ['Population Growth'
-                                          , 'Total Population'
-                                          , 'Urban Growth'
-                                          , 'Total urban'])
-    print(corr.columns)
+    plt.xticks(range(len(corr.columns)), ['Population Growth', 'Total Population', 'Urban Growth', 'Total urban'], rotation=90)
+    plt.yticks(range(len(corr.columns)), ['Population Growth', 'Total Population', 'Urban Growth', 'Total urban'])
 
 
 #==============================================================================
@@ -418,10 +409,9 @@ plt.show()
 #==============================================================================
 # Clustering Analysis (k-means Clustering)
 #==============================================================================
-countries = ['Germany','Australia','United States','China','United Kingdom']
-df_y, df_i = get_data_frames1('API_19_DS2_en_csv_v2_4700503.csv',countries
-                             ,['SP.POP.GROW','SP.POP.TOTL','SP.URB.GROW'
-                               ,'SP.URB.TOTL'])
+indicators = ['SP.POP.GROW','SP.POP.TOTL','SP.URB.GROW','SP.URB.TOTL']
+df_y, df_i = get_data_frames1('API_19_DS2_en_csv_v2_4700503.csv'
+                             ,indicators)
 
 
 df_i = df_i.loc[df_i['Years'].eq('2015')]
